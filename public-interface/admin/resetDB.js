@@ -20,26 +20,25 @@ var models = require('../iot-entities/postgresql/models'),
 var ResetDB = function(){};
 
 ResetDB.prototype.reset = function(cb){
-	models.sequelize.authenticate()
-    .then(function() {
-        var tables = [];
-        Object.keys(models.sequelize.models)
-        .forEach(function(model){
-            const tableData = models.sequelize.models[model].getTableName();
-            const tableName = '"' + tableData.schema + '"."' + tableData.tableName + '"';
-            tables.push(tableName);
-        });
-
-        const tableNames = tables.join(', ');
-
-        return models.sequelize.query('DROP TABLE IF EXISTS ' + tableNames + ' CASCADE');
-    })
+    console.log("Marcel start");
+    models.sequelize.authenticate()
 	.then(function() {
-	    return models.initSchema();
+            var tables = [];
+	    var fn = function(model){
+		console.log("Marcel executed with model " + model);
+		const tableData = models.sequelize.models[model].getTableName();
+		const tableName = '"' + tableData.schema + '"."' + tableData.tableName + '"';
+		//tables.push(tableName);
+		return models.sequelize.query('TRUNCATE TABLE ' + tableName + ' CASCADE');
+	    }
+            requests = Object.keys(models.sequelize.models)
+		.map(fn);
+            return Promise.all(requests);
 	})
-    .then(function() {
-        return systemUsers.create();
-    });
+	.then(function() {
+	    console.log("Marcel recreate systemusers");
+            return systemUsers.create();
+	});
 }
 
 module.exports = ResetDB;
