@@ -20,15 +20,12 @@ var models = require('../iot-entities/postgresql/models'),
 var ResetDB = function(){};
 
 ResetDB.prototype.reset = function(cb){
-    console.log("Marcel start");
     models.sequelize.authenticate()
 	.then(function() {
             var tables = [];
 	    var fn = function(model){
-		console.log("Marcel executed with model " + model);
 		const tableData = models.sequelize.models[model].getTableName();
 		const tableName = '"' + tableData.schema + '"."' + tableData.tableName + '"';
-		//tables.push(tableName);
 		return models.sequelize.query('TRUNCATE TABLE ' + tableName + ' CASCADE');
 	    }
             requests = Object.keys(models.sequelize.models)
@@ -36,7 +33,6 @@ ResetDB.prototype.reset = function(cb){
             return Promise.all(requests);
 	})
 	.then(function() {
-	    console.log("Marcel recreate systemusers");
             return systemUsers.create();
 	});
 }
