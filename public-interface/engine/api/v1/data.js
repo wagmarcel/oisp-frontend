@@ -18,99 +18,80 @@
 'use strict';
 
 var DevicesAPI = require('./devices'),
-    AccountAPI = require('./accounts'),
-    UsersAPI = require('./users'),
-    config = require('../../../config'),
-    errBuilder  = require("../../../lib/errorHandler").errBuilder,
-    DataProxy = require('../../../lib/advancedanalytics-proxy').DataProxy,
-    proxy = new DataProxy(config.drsProxy),
-    logger = require('../../../lib/logger').init(),
-    mailer = require('../../../lib/mailer'),
-    valuesValidator = require('../helpers/componentValuesValidator'),
-    entityProvider = require('../../../iot-entities/postgresql/index'),
-    Component = entityProvider.deviceComponents,
-    DeviceComponentMissingExportDays = entityProvider.deviceComponentMissingExportDays;
+  AccountAPI = require('./accounts'),
+  UsersAPI = require('./users'),
+  config = require('../../../config'),
+  errBuilder = require("../../../lib/errorHandler").errBuilder,
+  DataProxy = require('../../../lib/advancedanalytics-proxy').DataProxy,
+  proxy = new DataProxy(config.drsProxy),
+  logger = require('../../../lib/logger').init(),
+  mailer = require('../../../lib/mailer'),
+  valuesValidator = require('../helpers/componentValuesValidator'),
+  entityProvider = require('../../../iot-entities/postgresql/index'),
+  Component = entityProvider.deviceComponents;
 
-exports.collectData = function (options, resultCallback) {
-    var deviceId = options.deviceId,
-        data = options.data,
-        accountId = data.accountId,
-        gatewayId = options.gatewayId;
-    // Since AA require the account id (that AA called public account id). It is converted.
-    DevicesAPI.getDevice(deviceId, accountId, function (err, foundDevice) {
-        if (!err && foundDevice && foundDevice.domainId === accountId) {
-            if (foundDevice.components) {
-                if (deviceId === gatewayId || foundDevice.gatewayId === gatewayId) {
-                    logger.debug("Found " + foundDevice.components.length + " device components");
-                    var latestObservationTimes = {};
-                    var oldObservationTimes = {};
-                    var currentComponents = [];
-                    foundDevice.components.forEach(function (cmp) {
-                        var latestObservationTime = -1;
-                        data.data.forEach(function (item) {
-                            logger.debug("Comparing device component - " + cmp.cid + " with component - " + item.componentId);
-                            if (item.componentId === cmp.cid) {
-                                if (new valuesValidator(cmp.componentType.dataType, item.value).validate() === true) {
-                                    currentComponents.push({ type: cmp.type, on: item.on });
-                                }
-                                if (item.on > latestObservationTime) {
-                                    latestObservationTime = item.on;
-                                }
-                                if (new Date(item.on) <= cmp.last_export_date) {
-                                    if (!(cmp.cid in oldObservationTimes)) {
-                                        oldObservationTimes[cmp.cid] = [];
-                                    }
-                                    oldObservationTimes[cmp.cid].push(item.on);
-                                }
-                            }
-                        });
-                        if (latestObservationTime > -1) {
-                            latestObservationTimes[cmp.cid] = latestObservationTime;
-                        }
-                    });
-                    if (currentComponents.length > 0) {
-                        // update health total
+exports.collectData = function(options, resultCallback) {
+  var deviceId = options.deviceId,
+    data = options.data,
+    accountId = data.accountId,
+    gatewayId = options.gatewayId;
 
-                        // this message get to this point by REST API, we need to forward it to MQTT channel for future consumption
-                        data.domainId = accountId;
-                        data.gatewayId = foundDevice.gatewayId;
-                        data.deviceId = deviceId;
-                        data.systemOn = Date.now();
+  // Since AA require the account id (that AA called public account id). It is converted.
+  /*DevicesAPI.getDevice(deviceId, accountId, function (err, foundDevice) {
+      if (!err && foundDevice && foundDevice.domainId === accountId) {*/
 
-                        var submitData = proxy.submitDataKafka;
-                        if (config.drsProxy.ingestion === 'REST') {
-                            submitData = proxy.submitDataREST;
-                        }
-
-                        Object.keys(oldObservationTimes).forEach(function (cid) {
-                            DeviceComponentMissingExportDays.addHistoricalDaysWithDataIfNotExisting(cid, oldObservationTimes[cid], function (err) {
-                                if(err) {
-                                    logger.error("Error occured when adding historical dates for exporting again for component " + cid + ": " + err);
-                                }
-                            });
-                        });
-
-                        logger.debug("Data to Send: " + JSON.stringify(data));
-                        submitData(data, function (err) {
-                            resultCallback(err);
-                        });
-
-                    } else {
-                        // None of the components is registered for the device
-                        resultCallback(errBuilder.build(errBuilder.Errors.Device.Component.NotFound));
-                    }
-                } else {
-                    // Invalid GatewayId
-                    resultCallback(errBuilder.build(errBuilder.Errors.Generic.NotAuthorized));
-                }
-            } else {
-                resultCallback(errBuilder.build(errBuilder.Errors.Device.Component.NotExists));
-            }
-        } else {
-            resultCallback(err || errBuilder.build(errBuilder.Errors.Device.NotFound));
+  Component.findComponentsAndTypesForDevice(deviceId, function(errGetComponents, filteredComponents) {
+    if (!errGetComponents && filteredComponents && filteredComponents.length > 0) {
+      var foundComponents = [];
+      var filteredData = data.data.filter(item => {
+        var cmp = filteredComponents.find(cmp => cmp.cid === item.componentId);
+        if (undefined === cmp) {
+          return false;
         }
-    });
-};
+        if (new valuesValidator(cmp.componentType.dataType, item.value).validate() === true) {
+          foundComponents.push(cmp.cid);
+          item.dataType = cmp.componentType.dataType;
+          return true;
+        } else {
+          return false;
+        }
+      });
+      if (foundComponents.length > 0) {
+        // this message get to this point by REST API, we need to forward it to MQTT channel for future consumption
+        data.domainId = accountId;
+        data.gatewayId = gatewayId;
+        data.deviceId = deviceId;
+        data.systemOn = Date.now();
+        data.data = filteredData;
+        var submitData = proxy.submitDataKafka;
+        if (config.drsProxy.ingestion === 'REST') {
+          submitData = proxy.submitDataREST;
+        }
+
+        logger.debug("Data to Send: " + JSON.stringify(data));
+        submitData(data, function(err) {
+          if (!err) {
+            if (foundComponents.length != data.data.length) {
+              err = errBuilder.build(
+                errBuilder.Errors.Data.PartialDataProcessed,
+                "Only the following components could be sent: " + JSON.stringify(foundComponents));
+              err = "Some components not found";
+            }
+          }
+          resultCallback(err);
+        });
+
+      } else {
+        // None of the components is registered for the device
+        resultCallback(errBuilder.build(errBuilder.Errors.Device.Component.NotFound));
+      }
+
+    } else {
+      resultCallback(errBuilder.build(errBuilder.Errors.Device.Component.NotExists
+        || errBuilder.build(errBuilder.Errors.Device.NotFound)));
+    }
+  })
+}
 
 function findDevices(accountId, targetFilter, resultCallback) {
     var searchCriteria = [];
