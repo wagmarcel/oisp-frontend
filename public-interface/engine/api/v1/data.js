@@ -34,12 +34,10 @@ exports.collectData = function(options, resultCallback) {
   var deviceId = options.deviceId,
     data = options.data,
     accountId = data.accountId,
-    gatewayId = options.gatewayId;
+    gatewayId = options.gatewayId,
+    dataLength = options.data.data.length;
 
   // Since AA require the account id (that AA called public account id). It is converted.
-  /*DevicesAPI.getDevice(deviceId, accountId, function (err, foundDevice) {
-      if (!err && foundDevice && foundDevice.domainId === accountId) {*/
-
   Component.findComponentsAndTypesForDevice(deviceId, function(errGetComponents, filteredComponents) {
     if (!errGetComponents && filteredComponents && filteredComponents.length > 0) {
       var foundComponents = [];
@@ -71,11 +69,10 @@ exports.collectData = function(options, resultCallback) {
         logger.debug("Data to Send: " + JSON.stringify(data));
         submitData(data, function(err) {
           if (!err) {
-            if (foundComponents.length != data.data.length) {
+            if (foundComponents.length != dataLength) {
               err = errBuilder.build(
                 errBuilder.Errors.Data.PartialDataProcessed,
                 "Only the following components could be sent: " + JSON.stringify(foundComponents));
-              err = "Some components not found";
             }
           }
           resultCallback(err);
