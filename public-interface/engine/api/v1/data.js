@@ -18,90 +18,106 @@
 'use strict';
 
 var DevicesAPI = require('./devices'),
-  AccountAPI = require('./accounts'),
-  UsersAPI = require('./users'),
-  config = require('../../../config'),
-  errBuilder = require("../../../lib/errorHandler").errBuilder,
-  DataProxy = require('../../../lib/advancedanalytics-proxy').DataProxy,
-  proxy = new DataProxy(config.drsProxy),
-  logger = require('../../../lib/logger').init(),
-  mailer = require('../../../lib/mailer'),
-  valuesValidator = require('../helpers/componentValuesValidator'),
-  entityProvider = require('../../../iot-entities/postgresql/index'),
-  Component = entityProvider.deviceComponents,
-  Devices = entityProvider.devices;
+    AccountAPI = require('./accounts'),
+    UsersAPI = require('./users'),
+    config = require('../../../config'),
+    errBuilder = require("../../../lib/errorHandler").errBuilder,
+    DataProxy = require('../../../lib/advancedanalytics-proxy').DataProxy,
+    proxy = new DataProxy(config.drsProxy),
+    logger = require('../../../lib/logger').init(),
+    secConfig = require('../../../lib/security/config'),
+    mailer = require('../../../lib/mailer'),
+    ValuesValidator = require('../helpers/componentValuesValidator'),
+    entityProvider = require('../../../iot-entities/postgresql/index'),
+    Component = entityProvider.deviceComponents,
+    Devices = entityProvider.devices;
 
 exports.collectData = function(options, resultCallback) {
-  var deviceId = options.deviceId,
-    data = options.data,
-    accountId = data.accountId,
-    gatewayId = options.gatewayId,
-    dataLength = options.data.data.length;
+    var deviceId = options.deviceId,
+        data = options.data,
+        accountId = data.accountId,
+        identity = options.identity,
+        dataLength = options.data.data.length;
 
-  // Since AA require the account id (that AA called public account id). It is converted.
-  Component.findComponentsAndTypesForDevice(deviceId, function(errGetComponents, filteredComponents) {
-    if (!errGetComponents && filteredComponents && filteredComponents.length > 0) {
-      // If token is not a device token, check account/device relationship
-      // For a device token, this is part of the token info
-      var preCheck = Promise.resolve();
-      if (options.type == "user") {
-        preCheck = Devices.belongsToAccount(deviceId, accountId)
-        .catch(() => {
-          console.log("Not Found!");
-          resultCallback(errBuilder.build(errBuilder.Errors.Generic.NotAuthorized));
-        })
-      }
-      preCheck
-      .then(() => {
-        var foundComponents = [];
-        var filteredData = data.data.filter(item => {
-          var cmp = filteredComponents.find(cmp => cmp.cid === item.componentId);
-          if (undefined === cmp) {
-            return false;
-          }
-          if (new valuesValidator(cmp.componentType.dataType, item.value).validate() === true) {
-            foundComponents.push(cmp.cid);
-            item.dataType = cmp.componentType.dataType;
-            return true;
-          } else {
-            return false;
-          }
-        });
-        if (foundComponents.length > 0) {
-          // this message get to this point by REST API, we need to forward it to MQTT channel for future consumption
-          data.domainId = accountId;
-          data.gatewayId = gatewayId;
-          data.deviceId = deviceId;
-          data.systemOn = Date.now();
-          data.data = filteredData;
-          var submitData = proxy.submitDataKafka;
-          if (config.drsProxy.ingestion === 'REST') {
-            submitData = proxy.submitDataREST;
-          }
-
-          logger.debug("Data to Send: " + JSON.stringify(data));
-          submitData(data, function(err) {
-            if (!err) {
-              if (foundComponents.length != dataLength) {
-                err = errBuilder.build(
-                  errBuilder.Errors.Data.PartialDataProcessed,
-                  "Only the following components could be sent: " + JSON.stringify(foundComponents));
-              }
+    // Needed checks:
+    // For user and device:
+    // 1a) Device does not have components => Component.NotFound
+    // 1b) Component not fitting to the device => Component.NotFound
+    // 1c) Only Some of the Components fitting to device or dataType does not fit to value
+    //     => PartiallyDataProcessed
+    // For device only:
+    // 2a) Device not sending with own ID => Not.Authorized
+    // For user only:
+    // 3a) Device does not belong to one of the accounts of the user => NotAuthorized
+    //
+    Component.findComponentsAndTypesForDevice(deviceId, function(errGetComponents, filteredComponents) {
+        if (!errGetComponents && filteredComponents
+            && filteredComponents.length > 0) { //Case 1a
+            // If token is not a device token, check account/device relationship
+            // For a device token, this is part of the token info
+            function preCheck(type) {
+                if (type === secConfig.tokenTypes.user) { //3a
+                    return Devices.belongsToAccount(deviceId, accountId)
+                        .catch(() => Promise.reject(errBuilder.build(
+                            errBuilder.Errors.Generic.NotAuthorized)))
+                } else if (identity !== deviceId) { // case 2a
+                    return Promise.reject()
+                        .catch(() => Promise.reject(errBuilder.build(
+                            errBuilder.Errors.Generic.NotAuthorized)))
+                }
+                else return Promise.resolve("test")
             }
-            resultCallback(err);
-          });
+            preCheck(options.type)
+                .then((test) => {
+                    var foundComponents = [];
+                    var filteredData = data.data.filter(item => {
+                        var cmp = filteredComponents.find(cmp => cmp.cid === item.componentId);
+                        if (undefined === cmp) {
+                            return false;
+                        }
+                        if (new ValuesValidator(cmp.componentType.dataType, item.value).validate() === true) {
+                            foundComponents.push(cmp.cid);
+                            item.dataType = cmp.componentType.dataType;
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    });
+                    if (foundComponents.length > 0) { //Case 1b
+                        // this message get to this point by REST API, we need to forward it to MQTT channel for future consumption
+                        data.domainId = accountId;
+                        data.gatewayId = identity;
+                        data.deviceId = deviceId;
+                        data.systemOn = Date.now();
+                        data.data = filteredData;
+                        var submitData = proxy.submitDataKafka;
+                        if (config.drsProxy.ingestion === 'REST') {
+                            submitData = proxy.submitDataREST;
+                        }
 
-        } else {
-          // None of the components is registered for the device
-          resultCallback(errBuilder.build(errBuilder.Errors.Device.Component.NotFound));
+                        logger.debug("Data to Send: " + JSON.stringify(data));
+                        submitData(data, function(err) {
+                            if (!err) {
+                                if (foundComponents.length !== dataLength) {
+                                    err = errBuilder.build(
+                                        errBuilder.Errors.Data.PartialDataProcessed,
+                                        "Only the following components could be sent: " + JSON.stringify(foundComponents));
+                                }
+                            }
+                            resultCallback(err);
+                        });
+
+                    } else { //1b
+                        // None of the components is registered for the device
+                        resultCallback(errBuilder.build(errBuilder.Errors.Device.Component.NotFound));
+                    }
+                })
+                .catch((err) => resultCallback(err));
+        } else { //1a
+            resultCallback(errBuilder.build(errBuilder.Errors.Device.Component.NotFound));
         }
-      })
-    } else {
-      resultCallback(errBuilder.build(errBuilder.Errors.Device.Component.NotExists
-        || errBuilder.build(errBuilder.Errors.Device.NotFound)));
-    }
-  })
-}
+    });
+};
 
 function findDevices(accountId, targetFilter, resultCallback) {
     var searchCriteria = [];

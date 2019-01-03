@@ -468,7 +468,7 @@ exports.belongsToAccount = function(deviceId, accountId) {
       accountId: accountId,
       id: deviceId
     }
-  }
+  };
   return devices.findOne(filter)
   .then(function(result) {
     return new Promise(function(resolve, reject) {
@@ -478,6 +478,6 @@ exports.belongsToAccount = function(deviceId, accountId) {
       else {
         reject();
       }
-    })
-  })
-}
+    });
+  });
+};
