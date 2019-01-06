@@ -32,10 +32,6 @@ module.exports = {
 
         app.post(VERSION + FULL_PATH + '/report', schemaValidator.validateSchema(schemas.data.REPORT), data.aggregatedReport);
 
-        app.post(VERSION + FULL_PATH + '/firstLastMeasurementTimestamp', schemaValidator.validateSchema(schemas.data.FIRST_LAST_MEASUREMENT), data.firstLastMeasurement);
-
-        app.post(VERSION + PATH + "/admin/:deviceId", schemaValidator.validateSchema(schemas.data.POST), data.collectDataAdmin);
-
         app.post(VERSION + PATH + "/:deviceId", schemaValidator.validateSchema(schemas.data.POST), data.collectData);
 
         app.get(VERSION + FULL_PATH + "/totals", data.getTotals);

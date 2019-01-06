@@ -43,24 +43,6 @@ exports.collectData = function (req, res, next) {
     });
 };
 
-exports.collectDataAdmin = function (req, res, next) {
-
-    var options = {
-        deviceId: req.params.deviceId,
-        data: req.body,
-        forwarded: req.headers['forwarded'],
-        gatewayId: req.params.deviceId
-    };
-
-    data.collectData(options, function(err) {
-        if (!err) {
-            res.status(httpStatuses.Created.code).send();
-        } else {
-            next(err);
-        }
-    });
-};
-
 exports.searchData = function(req, res, next) {
     var searchRequest = req.body;
     var output = req.query.output;

@@ -28,7 +28,8 @@ uriParameters:
     description: |
       **Submit Data**
 
-      Submit data from specific device. You can use REST API capabilities to submit data for specific device and it's component. Device and component have to be registered in the cloud before sending observations.
+      Submit data from specific device. You can use REST API capabilities to submit data for specific device and it's component.
+      Device and component have to be registered in the cloud before sending observations. Admins can send data as test to devices belonging to their account. However, this is **not** recommended for production systems. This path is mainly optimized for the device role.
 
       * `Device location (loc)` should be sent as [_decimal latitude_, _decimal longitude_, _height in meters_] using WGS84 Datum
 
@@ -42,7 +43,7 @@ uriParameters:
         {
           "on": 1354741967799,
           "accountId": "550e8400-e29b-41d4-a716-446655440000",
-          "data": [            
+          "data": [
           {
             "componentId": "436e7e74-6771-4898-9057-26932f5eb7e1_01",
             "on": 1354741966688,
@@ -70,7 +71,7 @@ uriParameters:
             "on": 1354741966677,
             "value": "TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2YgdGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGludWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRoZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4="
           }
-          ]   
+          ]
         }
     responses:
       201:
@@ -201,7 +202,7 @@ uriParameters:
 
         Means:
 
-          (deviceId = "ABC") AND (componentId = "123" OR "456") 
+          (deviceId = "ABC") AND (componentId = "123" OR "456")
           AND (Tags contains "Intel" OR "IOT") AND (componentType = "temperature")
         ```
 
@@ -243,7 +244,7 @@ uriParameters:
             },
             {
               "sortField2" : "Desc"
-            }		
+            }
             ]
           }
     responses:
@@ -277,14 +278,14 @@ uriParameters:
                     ["ts", "val", "<lat>", "<lon>", "<alt>", "<att1_value>", ""],
                     ["ts", "val", "", "", "", "", ""]
                   ]
-                  }, 	
+                  },
                   {
-                    < component2 > 
+                    < component2 >
                   }
                   ]
-                }, 
+                },
                 {
-                  < device2 > 
+                  < device2 >
                 }
                 ]
               }

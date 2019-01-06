@@ -97,7 +97,6 @@ module.exports = {
     system: [
         "alert:write",
         "alert:trigger",
-        "data:writeany",
 
         "data:write",
         "data:read",

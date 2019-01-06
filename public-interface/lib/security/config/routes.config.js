@@ -25,7 +25,6 @@ module.exports = [
     ["/api/auth/token",                             verbs.POST,         "api:public"                            ],
     ["/api/auth/tokenInfo",                         verbs.GET,          "auth:read",     600                    ],
 
-    ["/api/data/admin/.*",                          verbs.POST,         "data:writeany", 1000000                ],
     ["/api/data/.*",                                verbs.POST,         "data:write",    36000                  ],
 
     ["/api/accounts/.*/data/search",                verbs.POST,         "data:read",     12000                  ],
