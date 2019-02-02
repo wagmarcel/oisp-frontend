@@ -28,6 +28,24 @@ var parseCborBody = function(req, res, next) {
         catch(e) {
             next(e);
         }
+        //copy Buffers into "shadow-structure 'binaryValues'"
+        var binaryValues = [];
+        var binValuesIndex = 0;
+        if (req.body.data !== undefined) {
+            req.body.data.forEach((item) => {
+                if (Buffer.isBuffer(item.value)) {
+                    binaryValues.push({
+                        index: binValuesIndex,
+                        value: item.value
+                    });
+                    item.value = binValuesIndex.toString();
+                    binValuesIndex++;
+                }
+            });
+        }
+        if (binaryValues.length > 0) {
+            req.binaryValues = binaryValues;
+        }
     }
     next();
 }

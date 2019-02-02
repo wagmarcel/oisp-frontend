@@ -30,6 +30,7 @@ var MQTTConnector = require('./../../lib/mqtt'),
     errBuilder  = require("../errorHandler").errBuilder,
     Metric = require('./Metric.data').init(util),
     responses = require('./utils/responses');
+const cbor = require('cbor');
 
 var buildDIMessage = function(data) {
     var times = util.extractFromAndTo(data);
@@ -137,15 +138,24 @@ module.exports = function(config) {
         var dataMetric = new Metric();
         var message = dataMetric.prepareDataIngestionMsg(data);
 
+        var body;
+        var contentType;
+        if (data.hasBinary) {
+            body = cbor.encode(message);
+            contentType = "application/cbor";
+        } else {
+            body = JSON.stringify(message);
+            contentType = "application/json";
+        }
         var options = {
             url: config.dataUrl + '/v1/accounts/' + data.domainId + '/dataSubmission',
             method: 'POST',
 
             headers: {
                 'x-iotkit-requestid': context.get('requestid'),
-                'Content-Type': 'application/json'
+                'Content-Type': contentType
             },
-            body: JSON.stringify(message)
+            body: body
         };
         logger.debug("Calling proxy to submit data");
         request(options, function(err, res) {

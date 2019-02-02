@@ -97,6 +97,7 @@ exports.collectData = function(options, resultCallback) {
                         data.deviceId = deviceId;
                         data.systemOn = Date.now();
                         data.data = filteredData;
+                        data.hasBinary = options.hasBinary;
                         var submitData = proxy.submitDataKafka;
                         if (config.drsProxy.ingestion === 'REST') {
                             submitData = proxy.submitDataREST;

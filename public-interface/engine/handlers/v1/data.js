@@ -34,6 +34,16 @@ exports.collectData = function (req, res, next) {
         type: req.tokenInfo.payload.type
     };
 
+    // copy binaryValues back to body.data
+    options.hasBinary = false;
+    if (req.binaryValues !== undefined) {
+        req.binaryValues.forEach((item) => {
+            req.body.data[item.index].value = item.value;
+        });
+        delete req.binaryValues;
+        options.hasBinary = true;
+    }
+
     data.collectData(options, function(err) {
         if (!err) {
             res.status(httpStatuses.Created.code).send();
