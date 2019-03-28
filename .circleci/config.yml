@@ -19,7 +19,7 @@ jobs:
     steps:
       - checkout
 
-      - run: cd publi-interface; npm install
+      - run: cd public-interface; npm install
 
       # run tests!
       - run: cd public-interface;  node_modules/grunt-cli/bin/grunt build-api
