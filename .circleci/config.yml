@@ -15,7 +15,7 @@ jobs:
       # - image: circleci/mongo:3.4.4
     environment:
         TERM: dumb
-        
+        shell: bash
     working_directory: ~/repo
 
     steps:
