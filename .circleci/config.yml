@@ -14,7 +14,7 @@ jobs:
       # documented at https://circleci.com/docs/2.0/circleci-images/
       # - image: circleci/mongo:3.4.4
     environment:
-        TERM: dumb
+        TERM: xterm
         shell: bash
     working_directory: ~/repo
 
