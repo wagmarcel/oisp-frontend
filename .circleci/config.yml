@@ -29,7 +29,7 @@ jobs:
             echo ${CURRENT_BRANCH} xxxxx ${IS_SIGNEDOFF}
             if [ "${CURRENT_BRANCH}" = "develop" ]; then
               echo "Checking whether signed"
-              if [ ! -z "${IS_SIGNEDOFF}" ]; then
+              if [[ "${IS_SIGNEDOFF}" == *Signed-off-by:*@* ]]; then
                 echo "Commit is signedoff"
               else
                 echo "Commit is not signedoff"
