@@ -20,7 +20,8 @@ jobs:
       - checkout
 
       - run: |
-	git branch 
+        git branch 
+
       - run: cd public-interface; npm install
 
       # run tests!
