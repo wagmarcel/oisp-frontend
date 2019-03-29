@@ -22,6 +22,8 @@ jobs:
       - run: |
           echo hello world
           git branch 
+          echo $CIRCLE_PULL_REQUESTS
+
 
       - run: cd public-interface; npm install
 
