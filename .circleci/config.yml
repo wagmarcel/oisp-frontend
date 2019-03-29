@@ -19,20 +19,22 @@ jobs:
     steps:
       - checkout
 
-      - run: |
-          echo hello world
-          IS_SIGNEDOFF=`git log -1 --pretty=%B`
-          echo hello world2
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          echo ${CURRENT_BRANCH} xxxxx ${IS_SIGNEDOFF}
-          if [ "${CURRENT_BRANCH}" = "develop" ]; then
-            echo "Checking whether signed"
-            if [ ! -z "${IS_SIGNEDOFF}" ]; then
-              echo "Commit is signedoff"
-            else
-              echo "Commit is not signedoff"
+      - run:
+          name: Check whether signedoff
+          command: |
+            echo hello world
+            IS_SIGNEDOFF=`git log -1 --pretty=%B`
+            echo hello world2
+            CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+            echo ${CURRENT_BRANCH} xxxxx ${IS_SIGNEDOFF}
+            if [ "${CURRENT_BRANCH}" = "develop" ]; then
+              echo "Checking whether signed"
+              if [ ! -z "${IS_SIGNEDOFF}" ]; then
+                echo "Commit is signedoff"
+              else
+                echo "Commit is not signedoff"
+              fi
             fi
-          fi
 
       - run: cd public-interface; npm install
 
