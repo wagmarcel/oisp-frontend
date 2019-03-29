@@ -26,9 +26,9 @@ jobs:
           name: Check whether most recent commit is signedoff
           shell: /bin/bash
           command: |
-            IS_SIGNEDOFF=`git log -1 --pretty=%B`
+            MESSAGE=`git log -1 --pretty=%B`
             echo "Checking whether signed"
-            if [[ "${IS_SIGNEDOFF}" == *Signed-off-by:*@* ]]; then
+            if [[ "${MESSAGE}" == *Signed-off-by:*@* ]]; then
               echo "Commit is signedoff"
             else
               echo "Commit is not signedoff"
