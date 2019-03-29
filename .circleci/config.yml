@@ -23,7 +23,7 @@ jobs:
       - checkout
 
       - run:
-          name: Check whether signedoff
+          name: Check whether most recent commit is signedoff
           command: |
             IS_SIGNEDOFF=`git log -1 --pretty=%B`
             echo "Checking whether signed"
@@ -31,6 +31,7 @@ jobs:
               echo "Commit is signedoff"
             else
               echo "Commit is not signedoff"
+              exit 1
             fi
             
 
