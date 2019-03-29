@@ -20,7 +20,8 @@ jobs:
       - checkout
 
       - run: |
-        git branch 
+          echo hello world
+          git branch 
 
       - run: cd public-interface; npm install
 
