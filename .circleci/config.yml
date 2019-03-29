@@ -24,6 +24,7 @@ jobs:
 
       - run:
           name: Check whether most recent commit is signedoff
+          shell: /bin/bash
           command: |
             IS_SIGNEDOFF=`git log -1 --pretty=%B`
             echo "Checking whether signed"
@@ -36,6 +37,7 @@ jobs:
             
 
       - run:
+          shell: /bin/bash
           name: Install dependencies
           command: |
             cd public-interface
@@ -43,6 +45,7 @@ jobs:
 
       # run tests!
       - run:
+          shell: /bin/bash
           name: Run linting and tests
           command: |
             cd public-interface
