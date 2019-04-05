@@ -18,8 +18,6 @@
 var kafka = require('kafka-node'),
     config = require('../config'),
     logger = require('../lib/logger').init(),
-
-
     kafkaConsumer,
     topic = config.drsProxy.kafka.topicsHeartbeatName,
     partition = 0,
@@ -38,41 +36,42 @@ var getKafkaOffset = function(topic_, partition_, cb) {
         }
     })
 };
+kafkaOffset.on('ready', function(){
+    getKafkaOffset(topic, partition, function(offset) {
+	if ( offset >= 0 ) {
+            var topics = [{ topic: topic, offset: offset+1, partition: partition}]
+            var options = { autoCommit: true, fromOffset: true};
 
-getKafkaOffset(topic, partition, function(offset) {
-    if ( offset >= 0 ) {
-        var topics = [{ topic: topic, offset: offset+1, partition: partition}]
-        var options = { autoCommit: true, fromOffset: true};
+            kafkaConsumer = new kafka.Consumer(kafkaClient, topics, options)
 
-        kafkaConsumer = new kafka.Consumer(kafkaClient, topics, options)
+            var oispServicesToMonitor = process.argv.slice(2);
 
-        var oispServicesToMonitor = process.argv.slice(2);
-       
-        kafkaConsumer.on('message', function (message) {
-            if ( kafkaConsumer ) {
-                console.log(message)
-                var now = new Date().getTime();
-                var i=0;
-                for(i=0; i<oispServicesToMonitor.length; i++) {
-                    if ( oispServicesToMonitor[i] != null && oispServicesToMonitor[i].trim() === message.value.trim() ) {
-                        oispServicesToMonitor[i] = null;
+            kafkaConsumer.on('message', function (message) {
+		if ( kafkaConsumer ) {
+                    console.log(message)
+                    var now = new Date().getTime();
+                    var i=0;
+                    for(i=0; i<oispServicesToMonitor.length; i++) {
+			if ( oispServicesToMonitor[i] != null && oispServicesToMonitor[i].trim() === message.value.trim() ) {
+                            oispServicesToMonitor[i] = null;
+			}
                     }
-                }
-                for(i=0; i<oispServicesToMonitor.length; i++) {
-                    if ( oispServicesToMonitor[i] != null ) {
-                        break;
+                    for(i=0; i<oispServicesToMonitor.length; i++) {
+			if ( oispServicesToMonitor[i] != null ) {
+                            break;
+			}
                     }
-                }
-                if ( i == oispServicesToMonitor.length ) {
-                    kafkaConsumer.close(true);
-                    kafkaConsumer = null;
-                }
-            }
-        });
-    }
-    else {
-        console.log("Cannot get Kafka offset ")
-    }
+                    if ( i == oispServicesToMonitor.length ) {
+			kafkaConsumer.close(true);
+			kafkaConsumer = null;
+                    }
+		}
+            });
+	}
+	else {
+            console.log("Cannot get Kafka offset ")
+	}
+    });
 });
 
 
