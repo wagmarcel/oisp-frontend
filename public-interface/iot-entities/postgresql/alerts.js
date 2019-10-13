@@ -34,10 +34,11 @@ exports.isStatusValid = function (status) {
     return false;
 };
 
-exports.new = function (newAlert, callback) {
+exports.new = function (newAlert, suppressed, callback) {
 
     var alertModel = interpreter.toDb(newAlert);
     alertModel["status"] = statuses.new;
+    alertModel["suppressed"] = suppressed;
     delete alertModel.id;
     return alerts.create(alertModel)
         .then(function (alert) {
@@ -53,7 +54,7 @@ exports.new = function (newAlert, callback) {
 
 };
 
-exports.findByStatus = function (accountId, status, callback) {
+exports.findByStatus = function (accountId, status, isActive, callback) {
     var filter = {
         where: {
             accountId: accountId
@@ -64,6 +65,9 @@ exports.findByStatus = function (accountId, status, callback) {
     if (status) {
         filter.where["status"] = status;
     }
+    if (isActive) {
+        filter.where["suppressed"] = false;
+    }
 
     return alerts.findAll(filter)
         .then(function (alert) {
@@ -71,6 +75,24 @@ exports.findByStatus = function (accountId, status, callback) {
         })
         .catch(function (err) {
             callback(err);
+        });
+};
+
+exports.searchNewAlertsWithExternalId = function (accountId, externalId, callback) {
+    var filter = {
+        where: {
+            accountId: accountId,
+            status: statuses.new,
+            externalId: externalId,
+            suppressed: false
+        },
+    };
+    return alerts.findOne(filter)
+        .then(function (alert) {
+            callback(null, alert);
+        })
+        .catch(function (err) {
+            callback(err, null);
         });
 };
 

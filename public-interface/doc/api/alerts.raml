@@ -24,7 +24,7 @@ uriParameters:
 get:
   description: |
     **Get List of Alerts**
-      
+
     Get a list of all alerts for the specified account.
 
     <meta name="access-roles" path="GET:/api/accounts/{accountId}/alerts">
@@ -42,7 +42,7 @@ get:
               "deviceId": "00-00-00-00-a8-9c",
               "ruleId": 6832,
               "ruleName": "rule 2 - basic condition new",
-              "priority": "Low", 
+              "priority": "Low",
               "triggered": 1402580459000,
               "created": 1411130946286,
               "naturalLangAlert": "temperature > 17.2",
@@ -64,6 +64,12 @@ get:
       example: 75
   get:
     is: [ authorization-header, response-errors-alerts, response-errors-generic ]
+    queryParameters:
+      active:
+        description: If true, ignore suppressed events
+        type: boolean
+        required: false
+        example: true
     description: |
       **Get Alert information**
 
@@ -136,7 +142,7 @@ get:
       is: [ authorization-header, responses-successful, response-errors-alerts, response-errors-generic ]
       description: |
         **Add comments to the Alert**
-        
+
         Add list of comments to the alert.
 
         <meta name="access-roles" path="PUT:/api/accounts/{accountId}/alerts/{alertId}/comments">

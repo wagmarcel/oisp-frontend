@@ -107,7 +107,11 @@ exports.getAlerts = function(req, res, next) {
     if (req.query.status) {
         params.status = req.query.status.split(",");
     }
+    if (req.query.active) {
+        params.active = req.query.active;
+        console.log("Marcel882 ", params.active);
 
+    }
     alert.getAlerts(params, function(err, result){
         if(!err && result){
             res.status(httpStatuses.OK.code).send(result);
