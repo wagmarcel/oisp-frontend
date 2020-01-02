@@ -156,7 +156,7 @@ module.exports = function(config) {
         const span = createSpan('submitDataRest');
 
         var dataMetric = new Metric();
-	var message = dataMetric.prepareDataIngestionMsg(data);
+	    var message = dataMetric.prepareDataIngestionMsg(data);
 
         var body = JSON.stringify(message);
         var contentType = "application/json";
@@ -202,41 +202,39 @@ module.exports = function(config) {
         var spanContext = {};
         injectSpanContext(span, opentracing.FORMAT_TEXT_MAP, spanContext);
         try {
-            var dataMetric = new Metric(),
-                metricsTopic = 'metrics',
-		messages = [];
-	    data.data.forEach(function (item, index) {
-		var value;
-		if (item.dataType=="ByteArray") {
-		    value = item.bValue;
-		} else {
-		    value = item.value;
-		}
-		const msg = {
-		    dataType: item.dataType,
-		    aid: data.domainId,
-		    cid: item.componentId,
-		    loc: item.loc,
-		    systemOn: data.systemOn,
-		    on: item.on,
-		    value: value.toString()
-		};
-		kafkaProducer.send([
-		    {
-			topic: metricsTopic,
-			messages: JSON.stringify(msg)
-		    }], function (err, data) {
-			finishSpan(span);
+            var metricsTopic = 'metrics';
+	        data.data.forEach(function (item) {
+	        var value;
+		    if (item.dataType === "ByteArray") {
+		        value = item.bValue;
+		    } else {
+		        value = item.value;
+		    }
+		    const msg = {
+		        dataType: item.dataType,
+		        aid: data.domainId,
+		        cid: item.componentId,
+		        loc: item.loc,
+		        systemOn: data.systemOn,
+		        on: item.on,
+		        value: value.toString()
+		    };
+		    kafkaProducer.send(
+                    [{
+			        topic: metricsTopic,
+			        messages: JSON.stringify(msg)
+		            }],
+                    function (err, data) {
+			        finishSpan(span);
 
-			if (err) {
+    			    if (err) {
                             logger.error("Error when forwarding observation to Kafka: " + JSON.stringify(err));
                             callback(errBuilder.build(errBuilder.Errors.Data.SubmissionError));
-			} else {
+    			    } else {
                             logger.debug("Response from Kafka after sending message: " + JSON.stringify(data));
                             callback(null);
-			}
-		    }
-		);
+    			   }
+    		    });
 	    });
         } catch(exception) {
             finishSpan(span);
