@@ -269,8 +269,11 @@ module.exports = function(config) {
         logger.debug("data-proxy. dataInquiry, options: " + JSON.stringify(options));
         request(options, function (err, res) {
             finishSpan(span);
-            var isBinary = (res.headers["content-type"] === "application/cbor");
             try {
+                if (err) {
+                    throw new Error(err);
+                }
+                var isBinary = (res.headers["content-type"] === "application/cbor");
                 if (!err && (res.statusCode === responses.Success.OK)) {
                     var returnedBody = null;
                     if (isBinary) {
