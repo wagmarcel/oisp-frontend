@@ -214,11 +214,16 @@ module.exports = function(config) {
 		        dataType: item.dataType,
 		        aid: data.domainId,
 		        cid: item.componentId,
-		        loc: item.loc,
 		        systemOn: data.systemOn,
 		        on: item.on,
 		        value: value.toString()
 		    };
+		    if (undefined !== item.attributes) {
+		        msg.attributes = item.attributes;
+		    }
+		    if (undefined !== item.loc) {
+		        msg.loc = item.loc;
+		    }
 		    kafkaProducer.send(
                     [{
 			        topic: metricsTopic,
