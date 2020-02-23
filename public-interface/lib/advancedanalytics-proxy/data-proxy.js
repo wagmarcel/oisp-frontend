@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* esversion: 8 */
 'use strict';
 var MQTTConnector = require('./../../lib/mqtt'),
     { Kafka, logLevel } = require('kafkajs'),
@@ -126,17 +126,17 @@ module.exports = function(config) {
                     maxRetryTime: 2000,
                     retries: 1
                 }
-            })
+            });
             kafkaProducer = kafka.producer();
-            const { CONNECT, DISCONNECT, REQUEST_TIMEOUT } = kafkaProducer.events
+            const { CONNECT, DISCONNECT } = kafkaProducer.events;
 
             kafkaAdmin    = kafka.admin();
             kafkaProducer.on(DISCONNECT, e => {
                 console.log(`Metric producer disconnected!: ${e.timestamp}`);
                 kafkaProducer.connect();
-            })
-            kafkaProducer.on(CONNECT, e => logger.debug("Kafka metric producer Connected!"))
-            kafkaProducer.connect()
+            });
+            kafkaProducer.on(CONNECT, e => logger.debug("Kafka metric producer connected: " + e));
+            kafkaProducer.connect();
 
         } catch (exception) {
             logger.error("Exception occured creating Kafka Producer: " + exception);
@@ -172,7 +172,7 @@ module.exports = function(config) {
         const span = createSpan('submitDataRest');
 
         var dataMetric = new Metric();
-      var message = dataMetric.prepareDataIngestionMsg(data);
+        var message = dataMetric.prepareDataIngestionMsg(data);
 
         var body = JSON.stringify(message);
         var contentType = "application/json";
@@ -220,7 +220,7 @@ module.exports = function(config) {
         injectSpanContext(span, opentracing.FORMAT_TEXT_MAP, spanContext);
         try {
             var metricsTopic = 'metrics';
-            promises = data.data.map(async function (item) {
+            var promises = data.data.map(async function (item) {
                 var value;
                 if (item.dataType === "ByteArray") {
                     value = item.bValue;
@@ -242,24 +242,24 @@ module.exports = function(config) {
                     msg.loc = item.loc;
                 }
                 try {
-                    msg = await kafkaProducer.send({
+                    var result = await kafkaProducer.send({
                         metricsTopic,
                         messages: [{ key: data.domainid, value: JSON.stringify(msg)
-                    }]})
-                    logger.debug("Response from Kafka after sending message: " + JSON.stringify(msg));
+                        }]});
+                    logger.debug("Response from Kafka after sending message: " + JSON.stringify(result));
                     ok = true;
                 } catch (e) {
-                    logger.error("Error when forwarding observation to Kafka: " + JSON.stringify(err));
+                    logger.error("Error when forwarding observation to Kafka: " + JSON.stringify(e));
                     error = true;
                 }
             });
-            await Promises.all(promises);
+            await Promise.all(promises);
             if (error && !ok || !error && !ok) {
                 callback(errBuilder.build(errBuilder.Errors.Data.SubmissionError));
             } else if (error && ok) {
                 callback(errBuilder.build(errBuilder.Errors.Data.PartialDataProcessed));
             } else {
-              callback(null);
+                callback(null);
             }
             finishSpan(span);
         } catch(exception) {

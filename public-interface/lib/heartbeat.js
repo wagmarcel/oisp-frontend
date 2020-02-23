@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+/* esversion: 8  */
 'use strict';
 var { Kafka, logLevel } = require('kafkajs'),
     config = require('../config'),
@@ -24,17 +24,17 @@ var kafkaProducer = null;
 var kafkaAdmin = null;
 
 const heartbeat = (producer, partition, topic) => {
-  return producer
-    .send({
-      topic,
-      messages: [{key: "heartbeat", value:"dashboard", partition: partition}]
-    })
-    .then(console.log("--------------------Sending heartbeat ..."))
-    .catch(async (e) => {
-      logger.error("Error while sending to topic " + topic + " error: " + e);
-      await kafkaProducer.disconnect();
-    })
-}
+    return producer
+        .send({
+            topic,
+            messages: [{key: "heartbeat", value:"dashboard", partition: partition}]
+        })
+        .then(console.log("--------------------Sending heartbeat ..."))
+        .catch(async (e) => {
+            logger.error("Error while sending to topic " + topic + " error: " + e);
+            await kafkaProducer.disconnect();
+        });
+};
 
 exports.start = function () {
 
@@ -47,33 +47,33 @@ exports.start = function () {
         retry: {
             maxRetryTime: 2000,
             retries: 1
-          }
-    })
+        }
+    });
     kafkaProducer = kafka.producer();
     kafkaAdmin    = kafka.admin();
-    const { CONNECT, DISCONNECT, REQUEST_TIMEOUT } = kafkaProducer.events
+    const { CONNECT, DISCONNECT} = kafkaProducer.events;
 
     const run = async () => {
-        await kafkaProducer.connect()
+        await kafkaProducer.connect();
         var topic = config.drsProxy.kafka.topicsHeartbeatName;
         var interval = parseInt(config.drsProxy.kafka.topicsHeartbeatInterval);
         var partition = 0;
         await kafkaAdmin.createTopics({
             topics: [{topic: topic}]
-        })
+        });
         heartBeatInterval = setInterval( function (producer, partition, topic) {
             heartbeat(producer, partition, topic);
         }, interval, kafkaProducer, partition, topic );
         rulesUpdateNotifier.notify();
-    }
+    };
 
-    run().catch(e => console.error("Kafka runtime error " + e))
+    run().catch(e => console.error("Kafka runtime error " + e));
 
     kafkaProducer.on(DISCONNECT, e => {
         console.log(`Disconnected!: ${e.timestamp}`);
         kafkaProducer.connect();
-    })
-    kafkaProducer.on(CONNECT, e => logger.debug("Kafka heartbeat producer Connected!"))
+    });
+    kafkaProducer.on(CONNECT, e => logger.debug("Kafka heartbeat producer connected: " + e));
 };
 
 exports.stop = function () {
