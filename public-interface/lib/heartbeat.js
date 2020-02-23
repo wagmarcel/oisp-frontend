@@ -15,47 +15,82 @@
  */
 
 'use strict';
-var Kafka = require('kafka-node'),
+var { Kafka, CompressionTypes, logLevel } = require('kafkajs'),
     config = require('../config'),
     logger = require('./logger').init(),
     rulesUpdateNotifier = require('../engine/api/helpers/rules-update-notifier'),
     heartBeatInterval = null;
-var kafkaClient = null;
+//var kafkaClient = null;
 var kafkaProducer = null;
+var kafkaAdmin = null;
 
-var heartBeat = function(producer, partition, topic) {
-    if ( producer != null) {
-        try {
-            console.log("--------------------Sending heartbeat ...");
-            producer.send([
-                {
-                    topic: topic,
-                    partition: partition,
-                    messages: "dashboard"
-                }
-            ], function (err) {
-                if (err) {
-                    logger.error("Error when sending heartbear message to Kafka: " + JSON.stringify(err));
-                }
-            });
-        } catch(exception) {
-            logger.error("Exception occured when sending heartbear message to Kafka: " + exception);
-        }
-    }
-};
+const heartbeat = (producer, partition, topic) => {
+  return producer
+    .send({
+      topic,
+      messages: [{key: "heartbeat", value:"dashboard", partition: partition}]
+    })
+    .then(console.log("--------------------Sending heartbeat ..."))
+    .catch(async (e) => {
+      logger.error("Error while sending to topic " + topic + " error: " + e);
+      await kafkaProducer.disconnect();
+    })
+}
 
 exports.start = function () {
 
-    kafkaClient = new Kafka.KafkaClient({kafkaHost: config.drsProxy.kafka.uri});
+    //kafkaClient = new Kafka.KafkaClient({kafkaHost: config.drsProxy.kafka.uri, requestTimeout: 5000, connectTimeout: 8000});
+    var brokers = config.drsProxy.kafka.uri.split(',');
+    const kafka = new Kafka({
+        logLevel: logLevel.INFO,
+        brokers: brokers,
+        clientId: 'frontend-heartbeat',
+        requestTimeout: 2000,
+        retry: {
+            maxRetryTime: 2000,
+            retries: 1
+          }
+    })
+    kafkaProducer = kafka.producer();//new Kafka.HighLevelProducer(kafkaClient, { requireAcks: 1, ackTimeoutMs: 500 });
+    kafkaAdmin    = kafka.admin();
+    const { CONNECT, DISCONNECT, REQUEST_TIMEOUT } = kafkaProducer.events
 
-    kafkaProducer = new Kafka.HighLevelProducer(kafkaClient, { requireAcks: 1, ackTimeoutMs: 500 });
+    /*kafkaClient.on('error',function(err) {
+        logger.warn("Heartbeat Kafka Client reports error: " + err);
+    })
+    kafkaProducer.on('error', function(err) {
+        logger.warn("Heartbeat Kafka Producer reports error: " + err);
+    });
+    kafkaProducer.on('close', function(err) {
+        logger.warn("Heartbeat Kafka Producer closing: " + err);
+    });*/
+    const run = async () => {
+        await kafkaProducer.connect()
+        var topic = config.drsProxy.kafka.topicsHeartbeatName;
+        var interval = parseInt(config.drsProxy.kafka.topicsHeartbeatInterval);
+        var partition = 0;
+        await kafkaAdmin.createTopics({
+            topics: [{topic: topic}]
+        })
+        heartBeatInterval = setInterval( function (producer, partition, topic) {
+            heartbeat(producer, partition, topic);
+        }, interval, kafkaProducer, partition, topic );
+        rulesUpdateNotifier.notify();
+    }
 
-    kafkaProducer.on('ready', function () {
+    run().catch(e => console.error("Kafka runtime error " + e))
+
+    kafkaProducer.on(DISCONNECT, e => {
+        console.log(`Disconnected !!!!!!!!!: ${e.timestamp}`);
+        kafkaProducer.connect();
+    })
+    kafkaProducer.on(CONNECT, e => console.log("Marcel533: Connected!!!!"))
+    kafkaProducer.on(REQUEST_TIMEOUT, e => console.log("Marcel534: REQUEST_TIMEOUT!!!!"))
+    /*kafkaProducer.on('ready', function () {
         var topic = config.drsProxy.kafka.topicsHeartbeatName;
         var interval = parseInt(config.drsProxy.kafka.topicsHeartbeatInterval);
         var partition = 0;
 
-        /*jshint -W098 */
         kafkaProducer.createTopics([topic], true, function (error, data) {
             if (!error) {
 
@@ -66,8 +101,7 @@ exports.start = function () {
                 rulesUpdateNotifier.notify();
             }
         });
-        /*jshint +W098 */
-    });
+    });*/
 };
 
 exports.stop = function () {
