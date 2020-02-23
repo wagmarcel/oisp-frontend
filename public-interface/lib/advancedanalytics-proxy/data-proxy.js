@@ -16,8 +16,8 @@
 
 'use strict';
 var MQTTConnector = require('./../../lib/mqtt'),
-    kafka = require('kafka-node'),
-    Producer = kafka.Producer,
+    { Kafka, logLevel } = require('kafkajs'),
+    //Producer = kafka.Producer,
     request = require('request'),
     util = require('../dateUtil'),
     logger = require('../logger').init(),
@@ -102,9 +102,7 @@ function finishSpan(span) {
 module.exports = function(config) {
 
     var connector = new MQTTConnector.Broker(config.mqtt, logger);
-
-    var kafkaClient, kafkaProducer;
-
+    var kafkaAdmin, kafkaProducer;
     var prepareErrorMessage = function (res) {
         var body = JSON.parse(res.body);
         var message = '';
@@ -118,16 +116,34 @@ module.exports = function(config) {
 
     if (config.ingestion === 'Kafka') {
         try {
-            kafkaClient = new kafka.KafkaClient({kafkaHost: config.kafka.uri});
-        } catch (exception) {
-            logger.error("Exception occured creating Kafka Client: " + exception);
-        }
-        try {
-            kafkaProducer = new Producer(kafkaClient);
+            var brokers = config.kafka.uri.split(',');
+            const kafka = new Kafka({
+                logLevel: logLevel.INFO,
+                brokers: brokers,
+                clientId: 'frontend-metrics',
+                requestTimeout: 2000,
+                retry: {
+                    maxRetryTime: 2000,
+                    retries: 1
+                }
+            })
+            kafkaProducer = kafka.producer();
+            const { CONNECT, DISCONNECT, REQUEST_TIMEOUT } = kafkaProducer.events
+
+            kafkaAdmin    = kafka.admin();
+            kafkaProducer.on(DISCONNECT, e => {
+                console.log(`Metric producer disconnected!: ${e.timestamp}`);
+                kafkaProducer.connect();
+            })
+            kafkaProducer.on(CONNECT, e => logger.debug("Kafka metric producer Connected!"))
+            kafkaProducer.connect()
+
         } catch (exception) {
             logger.error("Exception occured creating Kafka Producer: " + exception);
         }
+
     }
+
 
     this.submitDataMQTT = function(data, callback){
         const span = createSpan('submitDataMQTT');
@@ -156,7 +172,7 @@ module.exports = function(config) {
         const span = createSpan('submitDataRest');
 
         var dataMetric = new Metric();
-	    var message = dataMetric.prepareDataIngestionMsg(data);
+      var message = dataMetric.prepareDataIngestionMsg(data);
 
         var body = JSON.stringify(message);
         var contentType = "application/json";
@@ -197,53 +213,57 @@ module.exports = function(config) {
      * {"dataType":"Number", "aid":"account_id", "cid":"component_id", "value":"1",
      * "systemOn": 1574262569420, "on": 1574262569420, "loc": null}
      */
-    this.submitDataKafka = function(data, callback){
+    this.submitDataKafka = async (data, callback) => {
         const span = createSpan('submitDataKafka');
         var spanContext = {};
+        var error = false, ok = false;
         injectSpanContext(span, opentracing.FORMAT_TEXT_MAP, spanContext);
         try {
             var metricsTopic = 'metrics';
-	        data.data.forEach(function (item) {
-	        var value;
-		    if (item.dataType === "ByteArray") {
-		        value = item.bValue;
-		    } else {
-		        value = item.value;
-		    }
-		    const msg = {
-		        dataType: item.dataType,
-		        aid: data.domainId,
-		        cid: item.componentId,
-		        systemOn: data.systemOn,
-		        on: item.on,
-		        value: value.toString()
-		    };
-		    if (undefined !== item.attributes) {
-		        msg.attributes = item.attributes;
-		    }
-		    if (undefined !== item.loc) {
-		        msg.loc = item.loc;
-		    }
-		    kafkaProducer.send(
-                    [{
-			        topic: metricsTopic,
-			        messages: JSON.stringify(msg)
-		            }],
-                    function (err, data) {
-			        finishSpan(span);
-
-    			    if (err) {
-                            logger.error("Error when forwarding observation to Kafka: " + JSON.stringify(err));
-                            callback(errBuilder.build(errBuilder.Errors.Data.SubmissionError));
-    			    } else {
-                            logger.debug("Response from Kafka after sending message: " + JSON.stringify(data));
-                            callback(null);
-    			   }
-    		    });
-	    });
+            promises = data.data.map(async function (item) {
+                var value;
+                if (item.dataType === "ByteArray") {
+                    value = item.bValue;
+                } else {
+                    value = item.value;
+                }
+                const msg = {
+                    dataType: item.dataType,
+                    aid: data.domainId,
+                    cid: item.componentId,
+                    systemOn: data.systemOn,
+                    on: item.on,
+                    value: value.toString()
+                };
+                if (undefined !== item.attributes) {
+                    msg.attributes = item.attributes;
+                }
+                if (undefined !== item.loc) {
+                    msg.loc = item.loc;
+                }
+                try {
+                    msg = await kafkaProducer.send({
+                        metricsTopic,
+                        messages: [{ key: data.domainid, value: JSON.stringify(msg)
+                    }]})
+                    logger.debug("Response from Kafka after sending message: " + JSON.stringify(msg));
+                    ok = true;
+                } catch (e) {
+                    logger.error("Error when forwarding observation to Kafka: " + JSON.stringify(err));
+                    error = true;
+                }
+            });
+            await Promises.all(promises);
+            if (error && !ok || !error && !ok) {
+                callback(errBuilder.build(errBuilder.Errors.Data.SubmissionError));
+            } else if (error && ok) {
+                callback(errBuilder.build(errBuilder.Errors.Data.PartialDataProcessed));
+            } else {
+              callback(null);
+            }
+            finishSpan(span);
         } catch(exception) {
             finishSpan(span);
-
             logger.error("Exception occured when forwarding observation to Kafka: " + exception);
             callback(errBuilder.build(errBuilder.Errors.Data.SubmissionError));
         }

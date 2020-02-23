@@ -15,7 +15,7 @@
  */
 
 'use strict';
-var { Kafka, CompressionTypes, logLevel } = require('kafkajs'),
+var { Kafka, logLevel } = require('kafkajs'),
     config = require('../config'),
     logger = require('./logger').init(),
     rulesUpdateNotifier = require('../engine/api/helpers/rules-update-notifier'),
