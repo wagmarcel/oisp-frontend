@@ -242,12 +242,12 @@ module.exports = function(config) {
                     msg.loc = item.loc;
                 }
                 try {
-                    var messages = [{key: data.domainId, value: JSON.stringify(msg)}]
+                    var messages = [{key: data.domainId, value: JSON.stringify(msg)}];
                     var result = await kafkaProducer.send({
                         topic: metricsTopic,
                         messages,
                         partition: 0
-                        });
+                    });
                     logger.debug("Response from Kafka after sending message: " + JSON.stringify(result));
                     ok = true;
                 } catch (e) {
