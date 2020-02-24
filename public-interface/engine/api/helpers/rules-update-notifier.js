@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2014 Intel Corporation
+ * Copyright (c) 2014-2020 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,77 +15,55 @@
  */
 
 'use strict';
-var Kafka = require('kafka-node'),
+var { Kafka, logLevel } = require('kafkajs'),
     config = require('../../../config'),
     logger = require('../../../lib/logger').init(),
     rules = require("../../../iot-entities/postgresql/rules"),
     kafkaProducer = null,
+    kafkaAdmin = null,
     syncCheckTimer = null;
 
-var send = function() {
-    if ( kafkaProducer ) {
-        try {
-            kafkaProducer.send([
-                {
-                    topic: config.drsProxy.kafka.topicsRuleEngine,
-                    messages: ""
-                }
-            ], function (err) {
-                if (err) {
-                    logger.error("Error when sending rules-update message to Kafka: " + JSON.stringify(err));
-                }
-            });
-        } catch(exception) {
-            logger.error("Exception occured when sending rules-update message to Kafka: " + exception);
-        }
-
-        syncCheckTimer = setTimeout( function() {
-            rules.findBySynchronizationStatus(rules.ruleStatus.active, rules.ruleSynchronizationStatus.notsynchronized)
-                .then(function (noSyncRules) {
-                    if ( noSyncRules && noSyncRules.length > 0 ){
-                        send();
-                    }
-                });
-        }, 1000);
+var send = async function() {
+    if (kafkaProducer) {
+        return kafkaProducer.send({
+            topic: config.drsProxy.kafka.topicsRuleEngine,
+            messages: [{key: "", value: "updated"}]
+        })
+        .catch(async (e) => {
+            logger.error("Error while sending to topic " + topic + " error: " + e);
+            await kafkaProducer.disconnect();
+        });
     }
 };
 
-exports.notify = function () {
+exports.notify = async function () {
     if ( syncCheckTimer != null ) {
         clearInterval(syncCheckTimer);
         syncCheckTimer = null;
     }
 
     if ( kafkaProducer === null ) {
-        var kafkaClient;
-        try {
-            kafkaClient = new Kafka.KafkaClient({kafkaHost: config.drsProxy.kafka.uri});
-        } catch (exception) {
-            logger.error("Exception occured creating Kafka Client: " + exception);
-        }
-        try {
-            kafkaProducer = new Kafka.HighLevelProducer(kafkaClient, {
-                requireAcks: 1, // 1 = Leader ack required
-                ackTimeoutMs: 500
-            });
-        } catch (exception) {
-            logger.error("Exception occured creating Kafka Producer: " + exception);
-        }
-
-        kafkaProducer.on('ready', function() {
-            /*jshint -W098 */
-            kafkaProducer.createTopics([config.drsProxy.kafka.topicsRuleEngine], false, function (err, data) {
-                if (!err) {
-                    send();
-                }
-                else {
-                    console.log("Cannot create "+config.drsProxy.kafka.topicsRuleEngine + " topic "+err);
-                }
-            });
-            /*jshint +W098 */
-        });
+      var brokers = config.drsProxy.kafka.uri.split(',');
+      const kafka = new Kafka({
+          logLevel: logLevel.INFO,
+          brokers: brokers,
+          clientId: 'frontend-heartbeat',
+          requestTimeout: 2000,
+          retry: {
+              maxRetryTime: 2000,
+              retries: 1
+          }
+      });
+      try {
+          kafkaProducer = kafka.producer();
+          kafkaAdmin    = kafka.admin();
+      } catch (exception) {
+          logger.error("Exception occured creating Kafka Producer: " + exception);
+      }
+      await kafkaProducer.connect();
+      await kafkaAdmin.createTopics({
+        topics: [{topic: config.drsProxy.kafka.topicsRuleEngine, replicationFactor: config.drsProxy.kafka.replication }]
+      });
     }
-    else {
-        send();
-    }
+    send();
 };

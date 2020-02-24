@@ -59,7 +59,7 @@ exports.start = function () {
         var interval = parseInt(config.drsProxy.kafka.topicsHeartbeatInterval);
         var partition = 0;
         await kafkaAdmin.createTopics({
-            topics: [{topic: topic, replicationFactor: config.drsProxy.kafka.replicationFactor}]
+            topics: [{topic: topic, replicationFactor: config.drsProxy.kafka.replication}]
         });
         heartBeatInterval = setInterval( function (producer, partition, topic) {
             heartbeat(producer, partition, topic);
