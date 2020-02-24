@@ -18,7 +18,6 @@
 var { Kafka, logLevel } = require('kafkajs'),
     config = require('../../../config'),
     logger = require('../../../lib/logger').init(),
-    rules = require("../../../iot-entities/postgresql/rules"),
     kafkaProducer = null,
     kafkaAdmin = null,
     syncCheckTimer = null;
@@ -29,10 +28,10 @@ var send = async function() {
             topic: config.drsProxy.kafka.topicsRuleEngine,
             messages: [{key: "", value: "updated"}]
         })
-        .catch(async (e) => {
-            logger.error("Error while sending to topic " + topic + " error: " + e);
-            await kafkaProducer.disconnect();
-        });
+            .catch(async (e) => {
+                logger.error("Error while sending rule-update: " + e);
+                await kafkaProducer.disconnect();
+            });
     }
 };
 
@@ -43,27 +42,27 @@ exports.notify = async function () {
     }
 
     if ( kafkaProducer === null ) {
-      var brokers = config.drsProxy.kafka.uri.split(',');
-      const kafka = new Kafka({
-          logLevel: logLevel.INFO,
-          brokers: brokers,
-          clientId: 'frontend-heartbeat',
-          requestTimeout: 2000,
-          retry: {
-              maxRetryTime: 2000,
-              retries: 1
-          }
-      });
-      try {
-          kafkaProducer = kafka.producer();
-          kafkaAdmin    = kafka.admin();
-      } catch (exception) {
-          logger.error("Exception occured creating Kafka Producer: " + exception);
-      }
-      await kafkaProducer.connect();
-      await kafkaAdmin.createTopics({
-        topics: [{topic: config.drsProxy.kafka.topicsRuleEngine, replicationFactor: config.drsProxy.kafka.replication }]
-      });
+        var brokers = config.drsProxy.kafka.uri.split(',');
+        const kafka = new Kafka({
+            logLevel: logLevel.INFO,
+            brokers: brokers,
+            clientId: 'frontend-heartbeat',
+            requestTimeout: 2000,
+            retry: {
+                maxRetryTime: 2000,
+                retries: 1
+            }
+        });
+        try {
+            kafkaProducer = kafka.producer();
+            kafkaAdmin    = kafka.admin();
+        } catch (exception) {
+            logger.error("Exception occured creating Kafka Producer: " + exception);
+        }
+        await kafkaProducer.connect();
+        await kafkaAdmin.createTopics({
+            topics: [{topic: config.drsProxy.kafka.topicsRuleEngine, replicationFactor: config.drsProxy.kafka.replication }]
+        });
     }
     send();
 };
