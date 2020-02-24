@@ -103,6 +103,7 @@ module.exports = function(config) {
 
     var connector = new MQTTConnector.Broker(config.mqtt, logger);
     var kafkaAdmin, kafkaProducer;
+    var metricsTopic = config.kafka.topicsObservations;
     var prepareErrorMessage = function (res) {
         var body = JSON.parse(res.body);
         var message = '';
@@ -219,7 +220,6 @@ module.exports = function(config) {
         var error = false, ok = false;
         injectSpanContext(span, opentracing.FORMAT_TEXT_MAP, spanContext);
         try {
-            var metricsTopic = 'metrics';
             var promises = data.data.map(async function (item) {
                 var value;
                 if (item.dataType === "ByteArray") {
@@ -242,14 +242,16 @@ module.exports = function(config) {
                     msg.loc = item.loc;
                 }
                 try {
+                    var messages = [{key: data.domainId, value: JSON.stringify(msg)}]
                     var result = await kafkaProducer.send({
-                        metricsTopic,
-                        messages: [{ key: data.domainid, value: JSON.stringify(msg)
-                        }]});
+                        topic: metricsTopic,
+                        messages,
+                        partition: 0
+                        });
                     logger.debug("Response from Kafka after sending message: " + JSON.stringify(result));
                     ok = true;
                 } catch (e) {
-                    logger.error("Error when forwarding observation to Kafka: " + JSON.stringify(e));
+                    logger.error("Error when forwarding observation to Kafka: " + JSON.stringify(e.message));
                     error = true;
                 }
             });

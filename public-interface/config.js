@@ -215,7 +215,8 @@ var config = {
             topicsObservations: kafka_config.topicsObservations,
             topicsRuleEngine: kafka_config.topicsRuleEngine,
             topicsHeartbeatName: kafka_config.topicsHeartbeatName,
-            topicsHeartbeatInterval: kafka_config.topicsHeartbeatInterval
+            topicsHeartbeatInterval: kafka_config.topicsHeartbeatInterval,
+            replicationFactor: kafka_config.replicationFactor
         },
         ingestion: 'Kafka',
         userScheme: null // default
