@@ -37,7 +37,6 @@ const heartbeat = (producer, partition, topic) => {
 };
 
 exports.start = function () {
-    console.log("Marcel123 " + JSON.stringify(config.drsProxy.kafka))
     var brokers = config.drsProxy.kafka.uri.split(',');
     const kafka = new Kafka({
         logLevel: logLevel.INFO,
@@ -59,9 +58,8 @@ exports.start = function () {
         var interval = parseInt(config.drsProxy.kafka.topicsHeartbeatInterval);
         var partition = 0;
         var replicationFactor = config.drsProxy.kafka.replication;
-        console.log("Marcel723 " + replicationFactor)
         await kafkaAdmin.createTopics({
-            topics: [{topic: topic, replicationFactor}]
+            topics: [{topic: topic, replicationFactor, numPartitions: 1}]
         });
         heartBeatInterval = setInterval( function (producer, partition, topic) {
             heartbeat(producer, partition, topic);

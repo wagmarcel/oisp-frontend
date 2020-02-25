@@ -241,14 +241,12 @@ module.exports = function(config) {
                 if (undefined !== item.loc) {
                     msg.loc = item.loc;
                 }
-                var try_sending = async (round) => {
-                  console.log("Marcel325: Try to send data: " + round);
+                var try_sending = async () => {
                     try {
                         var messages = [{key: data.domainId, value: JSON.stringify(msg)}];
                         var result = await kafkaProducer.send({
                             topic: metricsTopic,
                             messages,
-                            partition: 0
                         });
                         logger.debug("Response from Kafka after sending message: " + JSON.stringify(result));
                         return true;
@@ -257,19 +255,12 @@ module.exports = function(config) {
                         kafkaProducer.disconnect();
                         return false;
                     }
-                }
-                var res;
-                var tries = config.kafka.appRetries + 1;
-                for (var i = 0; i < tries; i++) {
-                    res = await try_sending(i);
-                    if (res) {
-                      break;
-                    }
-                }
+                };
+                var res = await try_sending();
                 if (res === true) {
-                  ok = true;
+                    ok = true;
                 } else {
-                  error = true;
+                    error = true;
                 }
             });
             await Promise.all(promises);

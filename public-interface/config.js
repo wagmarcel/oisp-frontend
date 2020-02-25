@@ -219,8 +219,7 @@ var config = {
             replication: kafka_config.replication,
             requestTimeout: kafka_config.requestTimeout,
             maxRetryTime: kafka_config.maxRetryTime,
-            retries: kafka_config.retries,
-            appRetries: kafka_config.appRetries
+            retries: kafka_config.retries
         },
         ingestion: 'Kafka',
         userScheme: null // default
