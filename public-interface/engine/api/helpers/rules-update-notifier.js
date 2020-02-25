@@ -47,10 +47,10 @@ exports.notify = async function () {
             logLevel: logLevel.INFO,
             brokers: brokers,
             clientId: 'frontend-heartbeat',
-            requestTimeout: 2000,
+            requestTimeout: config.drsProxy.kafka.requestTimeout,
             retry: {
-                maxRetryTime: 2000,
-                retries: 1
+                maxRetryTime: config.drsProxy.kafka.maxRetryTime,
+                retries: config.drsProxy.kafka.retries
             }
         });
         try {
@@ -59,6 +59,12 @@ exports.notify = async function () {
         } catch (exception) {
             logger.error("Exception occured creating Kafka Producer: " + exception);
         }
+        const { CONNECT, DISCONNECT} = kafkaProducer.events;
+        kafkaProducer.on(DISCONNECT, e => {
+            console.log(`Disconnected!: ${e.timestamp}`);
+            kafkaProducer.connect();
+        });
+        kafkaProducer.on(CONNECT, e => logger.debug("Kafka rule-update producer connected: " + e));
         await kafkaProducer.connect();
         await kafkaAdmin.createTopics({
             topics: [{topic: config.drsProxy.kafka.topicsRuleEngine, replicationFactor: config.drsProxy.kafka.replication }]

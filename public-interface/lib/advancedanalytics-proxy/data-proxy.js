@@ -122,10 +122,10 @@ module.exports = function(config) {
                 logLevel: logLevel.INFO,
                 brokers: brokers,
                 clientId: 'frontend-metrics',
-                requestTimeout: 2000,
+                requestTimeout: config.kafka.requestTimeout,
                 retry: {
-                    maxRetryTime: 2000,
-                    retries: 1
+                    maxRetryTime: config.kafka.maxRetryTime,
+                    retries: config.kafka.retries
                 }
             });
             kafkaProducer = kafka.producer();
@@ -241,18 +241,35 @@ module.exports = function(config) {
                 if (undefined !== item.loc) {
                     msg.loc = item.loc;
                 }
-                try {
-                    var messages = [{key: data.domainId, value: JSON.stringify(msg)}];
-                    var result = await kafkaProducer.send({
-                        topic: metricsTopic,
-                        messages,
-                        partition: 0
-                    });
-                    logger.debug("Response from Kafka after sending message: " + JSON.stringify(result));
-                    ok = true;
-                } catch (e) {
-                    logger.error("Error when forwarding observation to Kafka: " + JSON.stringify(e.message));
-                    error = true;
+                var try_sending = async (round) => {
+                  console.log("Marcel325: Try to send data: " + round);
+                    try {
+                        var messages = [{key: data.domainId, value: JSON.stringify(msg)}];
+                        var result = await kafkaProducer.send({
+                            topic: metricsTopic,
+                            messages,
+                            partition: 0
+                        });
+                        logger.debug("Response from Kafka after sending message: " + JSON.stringify(result));
+                        return true;
+                    } catch (e) {
+                        logger.error("Error when forwarding observation to Kafka: " + JSON.stringify(e.message));
+                        kafkaProducer.disconnect();
+                        return false;
+                    }
+                }
+                var res;
+                var tries = config.kafka.appRetries + 1;
+                for (var i = 0; i < tries; i++) {
+                    res = await try_sending(i);
+                    if (res) {
+                      break;
+                    }
+                }
+                if (res === true) {
+                  ok = true;
+                } else {
+                  error = true;
                 }
             });
             await Promise.all(promises);

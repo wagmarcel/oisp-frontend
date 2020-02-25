@@ -37,16 +37,16 @@ const heartbeat = (producer, partition, topic) => {
 };
 
 exports.start = function () {
-
+    console.log("Marcel123 " + JSON.stringify(config.drsProxy.kafka))
     var brokers = config.drsProxy.kafka.uri.split(',');
     const kafka = new Kafka({
         logLevel: logLevel.INFO,
         brokers: brokers,
         clientId: 'frontend-heartbeat',
-        requestTimeout: 2000,
+        requestTimeout: config.drsProxy.kafka.requestTimeout,
         retry: {
-            maxRetryTime: 2000,
-            retries: 1
+            maxRetryTime: config.drsProxy.kafka.maxRetryTime,
+            retries: config.drsProxy.kafka.retries
         }
     });
     kafkaProducer = kafka.producer();
@@ -58,8 +58,10 @@ exports.start = function () {
         var topic = config.drsProxy.kafka.topicsHeartbeatName;
         var interval = parseInt(config.drsProxy.kafka.topicsHeartbeatInterval);
         var partition = 0;
+        var replicationFactor = config.drsProxy.kafka.replication;
+        console.log("Marcel723 " + replicationFactor)
         await kafkaAdmin.createTopics({
-            topics: [{topic: topic, replicationFactor: config.drsProxy.kafka.replication}]
+            topics: [{topic: topic, replicationFactor}]
         });
         heartBeatInterval = setInterval( function (producer, partition, topic) {
             heartbeat(producer, partition, topic);
