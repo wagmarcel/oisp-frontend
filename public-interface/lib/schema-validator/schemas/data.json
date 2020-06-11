@@ -75,8 +75,6 @@
                 "required": true,
 		"description": "The filter object that will be used to select devices",
 		"examples": [ "criteria or deviceList object" ],
-
-
                 "properties": {
                     "criteria": {
                         "type": "object",
@@ -199,6 +197,37 @@
                 "required": false,
 		"description": "true to include the geo location of each measurement, optional, false by default. Cannot be true if maxItems parameter is provided.",
 		"examples": [ "true", "false"]
+            },
+            "aggregator": {
+                "type": "object",
+                "requrired": false,
+                "properties": {
+                    "name": {
+                        "required": true,
+                        "type": "string",
+                        "description": "point aggregator, e.g. calculate averages over a period.",
+                        "examples": ["avg", "raw"]
+                    },
+                    "sampling": {
+                        "required": false,
+                        "type": "object",
+                        "description": "sampling interval, e.g. 10 seconds, 1 minute, etc.",
+                        "examples": ["{\"value\": 1, \"unit\": \"minutes\"}"],
+                        "properties": {
+                            "value": {
+                                "required": true,
+                                "description": "value of sampling interval",
+                                "type": "number"
+                            },
+                            "unit": {
+                                "required": true,
+                                "description": "Unit of sampling interval.",
+                                "examples": ["seconds", "minute", "hours"],
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
             }
         },
         "additionalProperties": false
